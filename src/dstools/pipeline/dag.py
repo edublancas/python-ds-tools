@@ -15,6 +15,10 @@ class DAGProduct:
     def __init__(self, dag):
         self.dag = dag
 
+    @property
+    def identifier(self):
+        return [t.product.identifier for t in self.dag.tasks]
+
     def outdated(self):
         return (self.outdated_data_dependencies()
                 or self.outdated_code_dependency())

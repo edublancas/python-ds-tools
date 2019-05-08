@@ -165,7 +165,7 @@ class MetaProduct:
 
     @property
     def identifier(self):
-        raise NotImplementedError('Missing implementation')
+        return [p.identifier for p in self.products]
 
     def exists(self):
         return all([p.exists() for p in self.products])
