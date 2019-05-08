@@ -2,6 +2,8 @@ from difflib import Differ
 
 
 def diff_strings(a, b):
+    """Compute the diff between two strings
+    """
     d = Differ()
 
     if a is None and b is None:

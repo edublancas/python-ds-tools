@@ -1,3 +1,6 @@
+"""
+Module for using PostgresSQL
+"""
 from jinja2 import Template
 import warnings
 import base64

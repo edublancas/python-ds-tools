@@ -330,6 +330,8 @@ class PythonScript(ScriptTask):
 
 
 class PythonCallable(Task):
+    """A task that runs a Python callabel (i.e.  a function)
+    """
     def __init__(self, code, product, dag, name, params={}):
         super().__init__(code, product, dag, name, params)
 

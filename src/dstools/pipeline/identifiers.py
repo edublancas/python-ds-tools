@@ -69,21 +69,17 @@ class CodeIdentifier(StringIdentifier):
     a Python callable, a language-agnostic string, a path to a soure code file
     or a jinja2.Template
     """
-
-    # FIXME: simplify this conditionals
     def __init__(self, code):
         self.needs_render = False
         self.rendered = False
+        self._s = code
 
-        if callable(code):
-            self._s = code
-        elif isinstance(code, str):
-            self._s = code
-        elif isinstance(code, Path):
-            self._s = code
+        if (callable(code)
+            or isinstance(code, str)
+                or isinstance(code, Path)):
+            pass
         elif isinstance(code, Template):
             self.needs_render = True
-            self._s = code
         else:
             TypeError('Code must be a callable, str, pathlib.Path or '
                       f'jinja2.Template, got {type(code)}')
@@ -94,11 +90,10 @@ class CodeIdentifier(StringIdentifier):
             # TODO: i think this doesn't work sometime and dill has a function
             # that covers more use cases, check
             return inspect.getsource(self())
-        elif isinstance(self._s, str):
             return self()
         elif isinstance(self._s, Path):
             return self().read_text()
-        elif isinstance(self._s, Template):
+        elif isinstance(self._s, Template) or isinstance(self._s, str):
             return self()
         else:
             TypeError('Code must be a callable, str, pathlib.Path or '
