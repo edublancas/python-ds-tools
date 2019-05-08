@@ -1,3 +1,4 @@
+from jinja2 import Template
 import warnings
 import base64
 import json
@@ -152,12 +153,7 @@ class PostgresIdentifier:
     VIEW = 'view'
 
     def __init__(self, schema, name, kind):
-        if len(name) > 63:
-            url = ('https://www.postgresql.org/docs/current/'
-                   'sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS')
-            raise ValueError(f'"{name}" exceeds maximum length of 63 '
-                             f' (length is {len(name)}), '
-                             f'see: {url}')
+        self.needs_render = isinstance(name, Template)
 
         if kind not in [self.TABLE, self.VIEW]:
             raise ValueError('kind must be one of ["view", "table"] '
@@ -167,11 +163,37 @@ class PostgresIdentifier:
         self.schema = schema
         self.name = name
 
+        if not self.needs_render:
+            self._validate_name()
+
+    def _validate_name(self):
+        if len(self.name) > 63:
+            url = ('https://www.postgresql.org/docs/current/'
+                   'sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS')
+            raise ValueError(f'"{self.name}" exceeds maximum length of 63 '
+                             f' (length is {len(self.name)}), '
+                             f'see: {url}')
+
     def render(self, params):
-        pass
+        if self.needs_render:
+            self.name = self.name.render(params)
+
+        self.rendered = True
+
+        return self
 
     def __call__(self):
-        return self
+        if self.needs_render and not self.rendered:
+            raise RuntimeError('Attempted to read Identifier '
+                               f'{repr(self)} '
+                               '(which was initialized with '
+                               'a jinja2.Template object) wihout '
+                               'rendering the DAG first, call '
+                               'dag.render() on the dag before reading '
+                               'the identifier or initialize with a str '
+                               'object')
+        else:
+            return self
 
     def __str__(self):
         return f'{self.schema}.{self.name}'
@@ -191,7 +213,10 @@ class PostgresScript(PostgresConnectionMixin, Task):
 
         # check if a valid conn is available before moving forward
         self._get_conn()
-        self._validate()
+
+        if not self._code.needs_render:
+            # FIXME: should also validate after render
+            self._validate()
 
     def _validate(self):
         infered_relations = infer.created_relations(self.source_code)

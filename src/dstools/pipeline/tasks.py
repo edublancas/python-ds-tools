@@ -52,6 +52,7 @@ class TaskGroup:
 
 class CodeIdentifier(Identifier):
 
+    # FIXME: simplify this conditionals
     def __init__(self, code):
         self.needs_render = False
         self.rendered = False

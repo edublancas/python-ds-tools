@@ -1,8 +1,12 @@
+import json
+from os import environ
+import psycopg2
 import shutil
 import os
 import pytest
 from pathlib import Path
 import tempfile
+from dstools.pipeline import postgres as pg
 
 
 def _path_to_tests():
@@ -73,3 +77,31 @@ def path_to_source_code_file():
 @pytest.fixture(scope='session')
 def path_to_env():
     return _path_to_tests() / 'assets' / 'sample' / 'env.yaml'
+
+
+def _load_db_credentials():
+    try:
+        p = Path('~', '.auth', 'postgres-dstools.json').expanduser()
+
+        with open(p) as f:
+            db = json.load(f)
+    except FileNotFoundError:
+        db = json.loads(environ['DB_CREDENTIALS'])
+
+    return db
+
+
+@pytest.fixture(scope='session')
+def open_conn():
+    db = _load_db_credentials()
+
+    conn = psycopg2.connect(dbname=db['dbname'],
+                            host=db['host'],
+                            user=db['user'],
+                            password=db['password'])
+
+    pg.CONN = conn
+
+    yield conn
+
+    conn.close()

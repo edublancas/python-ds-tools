@@ -30,8 +30,8 @@ class Identifier:
 
         return self
 
-    def __call__(self, params=None):
-        """Identifiers must be called
+    def __call__(self):
+        """Identifiers must be called from here
         """
         if self.needs_render:
             if not self.rendered:
