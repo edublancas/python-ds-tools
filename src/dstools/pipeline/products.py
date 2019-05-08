@@ -1,3 +1,4 @@
+from jinja2 import Template
 import warnings
 from pathlib import Path
 
@@ -7,15 +8,14 @@ class Product:
     """
 
     def __init__(self, identifier):
-        self._identifier = identifier
-
-        self.get_metadata()
+        self._identifier = StringIdentifier(identifier)
         self.tests, self.checks = [], []
+        self.did_download_metadata = False
         self.task = None
 
     @property
     def identifier(self):
-        return self._identifier
+        return self._identifier()
 
     @property
     def timestamp(self):
@@ -34,7 +34,12 @@ class Product:
 
     @property
     def metadata(self):
-        return self._metadata
+        if self.did_download_metadata:
+            return self._metadata
+        else:
+            self.get_metadata()
+            self.did_download_metadata = True
+            return self._metadata
 
     @task.setter
     def task(self, value):
@@ -218,26 +223,15 @@ class MetaProduct:
 
 
 class File(Product):
-
-    def __init__(self, identifier):
-        # FIXME: overridinfg super() since _path_to_file must be set before
-        # running get_metadata(), but I should refactor to avoid this
-
-        self._identifier = str(identifier)
-        self._path_to_file = Path(self.identifier)
-        self._path_to_stored_source_code = Path(str(self.path_to_file)
-                                                + '.source')
-
-        self.get_metadata()
-        self.task = None
-
+    """A product representing a local file
+    """
     @property
     def path_to_file(self):
-        return self._path_to_file
+        return Path(self.identifier)
 
     @property
     def path_to_stored_source_code(self):
-        return self._path_to_stored_source_code
+        return Path(str(self.path_to_file) + '.source')
 
     def fetch_metadata(self):
         # we can safely do this here since this is only run when the file
@@ -255,7 +249,6 @@ class File(Product):
 
     def save_metadata(self):
         # timestamp automatically updates when the file is saved...
-
         self.path_to_stored_source_code.write_text(self.stored_source_code)
 
     def exists(self):
@@ -263,3 +256,49 @@ class File(Product):
 
     def __str__(self):
         return self.identifier
+
+    def __repr__(self):
+        return f'File({self})'
+
+
+class StringIdentifier:
+
+    def __init__(self, s):
+        self.needs_render = isinstance(s, Template)
+        self.rendered = False
+
+        if not isinstance(s, str):
+            warnings.warn('Initialized StringIdentifier with non-string '
+                          f'object "{s}" type: {type(s)}, casting to str...')
+
+        self._s = str(s)
+
+    def __str__(self):
+        return self._s
+
+    def __repr__(self):
+        return f'StringIdentifier({self._s})'
+
+    def render(self, params):
+        if self.needs_render:
+            self._s = self._s.render(params)
+
+        self.rendered = True
+
+        return self
+
+    def __call__(self, params=None):
+        """Identifiers must be called
+        """
+        if self.needs_render:
+            if not self.rendered:
+                raise RuntimeError(f'Attempted to read Identifier {self} '
+                                   '(which was initialized with '
+                                   'a jinja2.Template object) wihout '
+                                   'rendering the DAG first, call '
+                                   'dag.render() on the dag before reading '
+                                   'the identifier or initialize with a str '
+                                   'object')
+            return self._s
+        else:
+            return self._s

@@ -61,9 +61,12 @@ class PostgresRelation(PostgresConnectionMixin, Product):
         self._get_conn()
 
         self.metadata_serializer = metadata_serializer
-        self.tests = []
 
-        super().__init__(PostgresIdentifier(*identifier))
+        # overriding superclass init since we need a PostgresIdentifier here
+        self._identifier = PostgresIdentifier(*identifier)
+        self.tests, self.checks = [], []
+        self.did_download_metadata = False
+        self.task = None
 
     def fetch_metadata(self):
         # https://stackoverflow.com/a/11494353/709975
@@ -169,6 +172,9 @@ class PostgresIdentifier:
 
     def __repr__(self):
         return f'{self.schema}.{self.name} (PG{self.kind.capitalize()})'
+
+    def __call__(self):
+        return self
 
 
 class PostgresScript(PostgresConnectionMixin, Task):
