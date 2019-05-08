@@ -1,46 +1,11 @@
 """
 DAG module
 """
-
 import subprocess
 import tempfile
 import networkx as nx
 
-# FIXME: replace with metaproduct
-class DAGProduct:
-    """
-    A class that exposes a Product-like API for representing
-    a DAG status
-    """
-
-    def __init__(self, dag):
-        self.dag = dag
-
-    @property
-    def identifier(self):
-        return [t.product.identifier for t in self.dag.tasks]
-
-    def outdated(self):
-        return (self.outdated_data_dependencies()
-                or self.outdated_code_dependency())
-
-    def outdated_data_dependencies(self):
-        return any([t.product.outdated_data_dependencies()
-                    for t in self.dag.tasks])
-
-    def outdated_code_dependency(self):
-        return any([t.product.outdated_code_dependency()
-                    for t in self.dag.tasks])
-
-    @property
-    def timestamp(self):
-        timestamps = [t.product.timestamp
-                      for t in self.dag.tasks
-                      if t.product.timestamp is not None]
-        if timestamps:
-            return max(timestamps)
-        else:
-            return None
+from dstools.pipeline.products import MetaProduct
 
 
 class DAG:
@@ -50,7 +15,7 @@ class DAG:
     def __init__(self, name=None):
         self.tasks = []
         self.tasks_by_name = {}
-        self.product = DAGProduct(self)
+        self.product = MetaProduct(self.tasks)
         self.name = name
 
     def add_task(self, task):
