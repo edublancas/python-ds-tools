@@ -154,6 +154,7 @@ class PostgresIdentifier:
 
     def __init__(self, schema, name, kind):
         self.needs_render = isinstance(name, Template)
+        self.rendered = False
 
         if kind not in [self.TABLE, self.VIEW]:
             raise ValueError('kind must be one of ["view", "table"] '
@@ -176,9 +177,12 @@ class PostgresIdentifier:
 
     def render(self, params):
         if self.needs_render:
-            self.name = self.name.render(params)
-
-        self.rendered = True
+            if not self.rendered:
+                self.name = self.name.render(params)
+                self.rendered = True
+            else:
+                warnings.warn(f'Trying to render {repr(self)}, with was'
+                              ' already rendered, skipping render...')
 
         return self
 

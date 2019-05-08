@@ -24,9 +24,12 @@ class Identifier:
 
     def render(self, params):
         if self.needs_render:
-            self._s = self._s.render(params)
-
-        self.rendered = True
+            if not self.rendered:
+                self._s = self._s.render(params)
+                self.rendered = True
+            else:
+                warnings.warn(f'Trying to render {repr(self)}, with was'
+                              ' already rendered, skipping render...')
 
         return self
 
