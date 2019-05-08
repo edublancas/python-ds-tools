@@ -6,6 +6,7 @@ import networkx as nx
 # NOTE: requires pygraphviz and pygraphviz
 
 
+# FIXME: replace with metaproduct
 class DAGProduct:
     """
     A class that exposes a Product-like API for representing
@@ -96,6 +97,12 @@ class DAG:
         path = tempfile.mktemp(suffix='.png')
         G_.draw(path, prog='dot', args='-Grankdir=LR')
         subprocess.run(['open', path])
+
+    def status(self):
+        """Returns the status of each node in the DAG
+        """
+        G = self.mk_graph(add_properties=True)
+        return [t.status() for t in nx.algorithms.topological_sort(G)]
 
     # def __getitem__(self, key):
         # return self.tasks_by_name[key]
