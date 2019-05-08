@@ -2,6 +2,8 @@ from jinja2 import Template
 import warnings
 from pathlib import Path
 
+from dstools.pipeline.identifiers import Identifier
+
 
 class Product:
     """A product is a persistent triggered by a Task
@@ -135,6 +137,17 @@ class Product:
         """
         raise NotImplementedError('You have to implement this method')
 
+    def render(self, params):
+        """
+        Render Product - this will render contents of Templates used as
+        identifier for this Product, if a regular string was passed, this
+        method has no effect
+        """
+        self._identifier.render(params)
+
+    def __str__(self):
+        return str(self.identifier)
+
     def __repr__(self):
         return f'{type(self).__name__}: {self.identifier}'
 
@@ -149,6 +162,10 @@ class MetaProduct:
     def __init__(self, products):
         self.products = products
         self.metadata = {p: p.metadata for p in self.products}
+
+    @property
+    def identifier(self):
+        raise NotImplementedError('Missing implementation')
 
     def exists(self):
         return all([p.exists() for p in self.products])
@@ -211,6 +228,10 @@ class MetaProduct:
         for p in self.products:
             p.save_metadata()
 
+    def render(self, params):
+        for p in self.products:
+            p.render(params)
+
     def pre_save_metadata_hook(self):
         pass
 
@@ -254,51 +275,20 @@ class File(Product):
     def exists(self):
         return self.path_to_file.exists()
 
-    def __str__(self):
-        return self.identifier
-
     def __repr__(self):
-        return f'File({self})'
+        return f'File({repr(self._identifier)})'
 
 
-class StringIdentifier:
+class StringIdentifier(Identifier):
 
     def __init__(self, s):
         self.needs_render = isinstance(s, Template)
         self.rendered = False
 
-        if not isinstance(s, str):
+        if not self.needs_render and not isinstance(s, str):
+            # if no Template passed but parameter is not str, cast...
             warnings.warn('Initialized StringIdentifier with non-string '
                           f'object "{s}" type: {type(s)}, casting to str...')
+            s = str(s)
 
-        self._s = str(s)
-
-    def __str__(self):
-        return self._s
-
-    def __repr__(self):
-        return f'StringIdentifier({self._s})'
-
-    def render(self, params):
-        if self.needs_render:
-            self._s = self._s.render(params)
-
-        self.rendered = True
-
-        return self
-
-    def __call__(self, params=None):
-        """Identifiers must be called
-        """
-        if self.needs_render:
-            if not self.rendered:
-                raise RuntimeError(f'Attempted to read Identifier {self} '
-                                   '(which was initialized with '
-                                   'a jinja2.Template object) wihout '
-                                   'rendering the DAG first, call '
-                                   'dag.render() on the dag before reading '
-                                   'the identifier or initialize with a str '
-                                   'object')
-            return self._s
-        else:
-            return self._s
+        self._s = s

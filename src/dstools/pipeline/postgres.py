@@ -167,21 +167,24 @@ class PostgresIdentifier:
         self.schema = schema
         self.name = name
 
+    def render(self, params):
+        pass
+
+    def __call__(self):
+        return self
+
     def __str__(self):
         return f'{self.schema}.{self.name}'
 
     def __repr__(self):
         return f'{self.schema}.{self.name} (PG{self.kind.capitalize()})'
 
-    def __call__(self):
-        return self
-
 
 class PostgresScript(PostgresConnectionMixin, Task):
     """A tasks represented by a SQL script run agains a Postgres database
     """
 
-    def __init__(self, code, product, dag, conn=None, name=None, params={}):
+    def __init__(self, code, product, dag, name, conn=None, params={}):
         super().__init__(code, product, dag, name, params)
 
         self._set_conn(conn)

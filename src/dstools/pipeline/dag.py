@@ -52,7 +52,7 @@ class DAG:
         if task.name is not None:
             self.tasks_by_name[task.name] = task
 
-    def mk_graph(self):
+    def mk_graph(self, add_properties=False):
         """
         Return a networkx directed graph from declared tasks and declared
         upstream dependencies
@@ -63,22 +63,31 @@ class DAG:
             G.add_node(t)
             G.add_edges_from([(up, t) for up in t.upstream])
 
-        for n, data in G.nodes(data=True):
-            data['color'] = 'red' if n.product.outdated() else 'green'
-            data['label'] = n.short_repr()
+        if add_properties:
+            for n, data in G.nodes(data=True):
+                data['color'] = 'red' if n.product.outdated() else 'green'
+                data['label'] = n.short_repr()
 
         return G
 
+    def render(self):
+        G = self.mk_graph(add_properties=False)
+
+        for t in nx.algorithms.topological_sort(G):
+            t.render()
+
     def build(self):
+        # FIXME: must render first
         # attributes docs:
         # https://graphviz.gitlab.io/_pages/doc/info/attrs.html
-        G = self.mk_graph()
+        G = self.mk_graph(add_properties=True)
 
         for t in nx.algorithms.topological_sort(G):
             t.build()
 
     def plot(self):
-        G = self.mk_graph()
+        # FIXME: must render first
+        G = self.mk_graph(add_properties=True)
         G_ = nx.nx_agraph.to_agraph(G)
         path = tempfile.mktemp(suffix='.png')
         G_.draw(path, prog='dot', args='-Grankdir=LR')

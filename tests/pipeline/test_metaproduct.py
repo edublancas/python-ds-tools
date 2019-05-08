@@ -12,8 +12,8 @@ def test_can_create_task_with_more_than_one_product(tmp_directory):
     fb = Path('b.txt')
     fc = Path('c.txt')
 
-    ta = BashCommand('touch a.txt b.txt', (File(fa), File(fb)), dag)
-    tc = BashCommand('touch c.txt', File(fc), dag)
+    ta = BashCommand('touch a.txt b.txt', (File(fa), File(fb)), dag, 'ta')
+    tc = BashCommand('touch c.txt', File(fc), dag, 'tc')
 
     ta >> tc
 

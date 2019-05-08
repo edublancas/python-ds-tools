@@ -8,6 +8,7 @@ import logging
 from datetime import datetime
 from dstools.pipeline import util
 from dstools.pipeline.products import Product, MetaProduct
+from dstools.pipeline.identifiers import Identifier
 from dstools.util import isiterable
 
 
@@ -41,10 +42,48 @@ class TaskGroup:
             for t in self.tasks:
                 t.set_upstream(other)
 
+    # FIXME: implement render
+
     def __rshift__(self, other):
         other.set_upstream(self)
         # return other so a >> b >> c works
         return other
+
+
+class CodeIdentifier(Identifier):
+
+    def __init__(self, code):
+        self.needs_render = False
+        self.rendered = False
+
+        if callable(code):
+            self._s = code
+        elif isinstance(code, str):
+            self._s = code
+        elif isinstance(code, Path):
+            self._s = code
+        elif isinstance(code, Template):
+            self.needs_render = True
+            self._s = code
+        else:
+            TypeError('Code must be a callable, str, pathlib.Path or '
+                      f'jinja2.Template, got {type(code)}')
+
+    @property
+    def source(self):
+        if callable(self._s):
+            # TODO: i think this doesn't work sometime and dill has a function
+            # that covers more use cases, check
+            return inspect.getsource(self())
+        elif isinstance(self._s, str):
+            return self()
+        elif isinstance(self._s, Path):
+            return self().read_text()
+        elif isinstance(self._s, Template):
+            return self()
+        else:
+            TypeError('Code must be a callable, str, pathlib.Path or '
+                      f'jinja2.Template, got {type(self.code)}')
 
 
 class Task:
@@ -55,20 +94,19 @@ class Task:
     code: callable, Path, str
     """
 
-    def __init__(self, code, product, dag, name=None, params={}):
+    def __init__(self, code, product, dag, name, params={}):
         self._upstream = []
         self._upstream_by_name = {}
+        self._name = name
+
         self.params = params
 
-        self._code = code
+        self._code = CodeIdentifier(code)
 
         if isinstance(product, Product):
             self._product = product
         else:
             self._product = MetaProduct(product)
-
-        self._set_name(name)
-        self._set_source_code()
 
         self._logger = logging.getLogger(__name__)
 
@@ -76,46 +114,13 @@ class Task:
 
         dag.add_task(self)
 
-    def _set_name(self, name):
-        if name is not None:
-            self._name = name
-        elif callable(self.code):
-            self._name = self.code.__name__
-        elif isinstance(self.code, str):
-            if len(self.code) < 60:
-                self._name = self.code
-            else:
-                self._name = self.code[:60]+'...'
-        elif isinstance(self.code, Path):
-            self._name = str(self.code)
-
-    def _set_source_code(self):
-        if callable(self.code):
-            # TODO: i think this doesn't work sometime and dill has a function
-            # that covers more use cases, check
-            self._source_code = inspect.getsource(self.code)
-        elif isinstance(self.code, str):
-            self._source_code = self.code
-        elif isinstance(self.code, Path):
-            self._source_code = self.code.read_text()
-
-    def compile_source_code(self):
-        # render source code
-        # params = {k: shlex.quote(str(v)) for k, v in self.params.items()}
-        # also pass upstream tasks
-        params = {**self.params, **self.upstream_by_name}
-        params['task'] = self
-        params['product'] = self.product
-
-        self._source_code = Template(self._source_code).render(params)
-
     @property
     def name(self):
         return self._name
 
     @property
     def source_code(self):
-        return self._source_code
+        return self._code.source
 
     @property
     def product(self):
@@ -123,7 +128,7 @@ class Task:
 
     @property
     def code(self):
-        return self._code
+        return self._code()
 
     @property
     def upstream(self):
@@ -161,7 +166,6 @@ class Task:
             return TaskGroup((self, other))
 
     def build(self, force=False):
-        self.compile_source_code()
 
         # NOTE: should i fetch metadata here? I need to make sure I have
         # the latest before building
@@ -243,8 +247,31 @@ class Task:
         print(out)
         return out
 
+    def render(self):
+        """
+        Renders code and product, all upstream tasks must have been rendered
+        first
+        """
+        up = {n: t.product.identifier for n, t
+              in self.upstream_by_name.items()}
+
+        # pass identifier objects only
+        params = {**self.params, **up}
+
+        # FIXME: need to render code here as well
+        try:
+            self.product.render(params)
+        except Exception as e:
+            raise RuntimeError(f'Error rendering product {self.product} from '
+                               f'task {self} with params '
+                               f'{params}. Exception: {e}')
+
+        params['me'] = self.product.identifier
+
+        self._code.render(params)
+
     def __repr__(self):
-        return f'{type(self).__name__}: {self.name} -> {self.product}'
+        return f'{type(self).__name__}: {self.name} -> {repr(self.product)}'
 
     def short_repr(self):
         def short(s):
@@ -258,7 +285,7 @@ class BashCommand(Task):
     """A task that runs bash command
     """
 
-    def __init__(self, code, product, dag, name=None, params={},
+    def __init__(self, code, product, dag, name, params={},
                  subprocess_run_kwargs={'stderr': subprocess.PIPE,
                                         'stdout': subprocess.PIPE,
                                         'shell': False},
@@ -291,7 +318,7 @@ class ScriptTask(Task):
     """
     _INTERPRETER = None
 
-    def __init__(self, code, product, dag, name=None, params={}):
+    def __init__(self, code, product, dag, name, params={}):
         if not isinstance(code, Path):
             raise ValueError(f'{type(self).__name__} must be called with '
                              'a pathlib.Path object in the code '
@@ -332,7 +359,7 @@ class PythonScript(ScriptTask):
 
 
 class PythonCallable(Task):
-    def __init__(self, code, product, dag, name=None, params={}):
+    def __init__(self, code, product, dag, name, params={}):
         super().__init__(code, product, dag, name, params)
 
     def compile_source_code(self):

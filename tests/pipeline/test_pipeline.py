@@ -8,7 +8,7 @@ from dstools.pipeline.products import File
 def test_non_existent_file():
     dag = DAG()
     f = File('file.txt')
-    ta = Task('echo hi', f, dag)
+    ta = Task('echo hi', f, dag, 'ta')
 
     assert not f.exists()
     assert f.outdated()
@@ -24,8 +24,8 @@ def test_outdated_data_simple_dependency(tmp_directory):
     fa = Path('a.txt')
     fb = Path('b.txt')
 
-    ta = BashCommand('touch a.txt', File(fa), dag)
-    tb = BashCommand('touch b.txt', File(fb), dag)
+    ta = BashCommand('touch a.txt', File(fa), dag, 'ta')
+    tb = BashCommand('touch b.txt', File(fb), dag, 'tb')
 
     tb.set_upstream(ta)
 
@@ -60,9 +60,9 @@ def test_many_upstream(tmp_directory):
     fb = Path('b.txt')
     fc = Path('c.txt')
 
-    ta = BashCommand('touch a.txt', File(fa), dag)
-    tb = BashCommand('touch b.txt', File(fb), dag)
-    tc = BashCommand('touch c.txt', File(fc), dag)
+    ta = BashCommand('touch a.txt', File(fa), dag, 'ta')
+    tb = BashCommand('touch b.txt', File(fb), dag, 'tb')
+    tc = BashCommand('touch c.txt', File(fc), dag, 'tc')
 
     tc.set_upstream(ta)
     tc.set_upstream(tb)
@@ -107,7 +107,7 @@ def test_can_create_task_with_many_products():
     dag = DAG()
     fa1 = File('a1.txt')
     fa2 = File('a2.txt')
-    ta = Task('echo hi', [fa1, fa2], dag)
+    ta = Task('echo hi', [fa1, fa2], dag, 'ta')
 
     assert not ta.product.exists()
     assert ta.product.outdated()
@@ -122,9 +122,9 @@ def test_overloaded_operators():
     fb = Path('b.txt')
     fc = Path('c.txt')
 
-    ta = BashCommand('touch a.txt', File(fa), dag)
-    tb = BashCommand('touch b.txt', File(fb), dag)
-    tc = BashCommand('touch c.txt', File(fc), dag)
+    ta = BashCommand('touch a.txt', File(fa), dag, 'ta')
+    tb = BashCommand('touch b.txt', File(fb), dag, 'tb')
+    tc = BashCommand('touch c.txt', File(fc), dag, 'tc')
 
     ta >> tb >> tc
 
@@ -140,9 +140,9 @@ def test_adding_tasks():
     fb = Path('b.txt')
     fc = Path('c.txt')
 
-    ta = BashCommand('touch a.txt', File(fa), dag)
-    tb = BashCommand('touch b.txt', File(fb), dag)
-    tc = BashCommand('touch c.txt', File(fc), dag)
+    ta = BashCommand('touch a.txt', File(fa), dag, 'ta')
+    tb = BashCommand('touch b.txt', File(fb), dag, 'tb')
+    tc = BashCommand('touch c.txt', File(fc), dag, 'tc')
 
     assert list((ta + tb).tasks) == [ta, tb]
     assert list((tb + ta).tasks) == [tb, ta]
@@ -158,9 +158,9 @@ def test_adding_tasks_left():
     fb = Path('b.txt')
     fc = Path('c.txt')
 
-    ta = BashCommand('touch a.txt', File(fa), dag)
-    tb = BashCommand('touch b.txt', File(fb), dag)
-    tc = BashCommand('touch c.txt', File(fc), dag)
+    ta = BashCommand('touch a.txt', File(fa), dag, 'ta')
+    tb = BashCommand('touch b.txt', File(fb), dag, 'tb')
+    tc = BashCommand('touch c.txt', File(fc), dag, 'tc')
 
     (ta + tb) >> tc
 
@@ -176,9 +176,9 @@ def test_adding_tasks_right():
     fb = Path('b.txt')
     fc = Path('c.txt')
 
-    ta = BashCommand('touch a.txt', File(fa), dag)
-    tb = BashCommand('touch b.txt', File(fb), dag)
-    tc = BashCommand('touch c.txt', File(fc), dag)
+    ta = BashCommand('touch a.txt', File(fa), dag, 'ta')
+    tb = BashCommand('touch b.txt', File(fb), dag, 'tb')
+    tc = BashCommand('touch c.txt', File(fc), dag, 'tc')
 
     ta >> (tb + tc)
 
