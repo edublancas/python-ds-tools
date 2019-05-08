@@ -1,8 +1,12 @@
-from jinja2 import Template
+
+"""
+Products are persistent changes triggered by Tasks such as a new file
+in the local filesystem or a table in a database
+"""
+
 import warnings
 from pathlib import Path
-
-from dstools.pipeline.identifiers import Identifier
+from dstools.pipeline.identifiers import StringIdentifier
 
 
 class Product:
@@ -277,18 +281,3 @@ class File(Product):
 
     def __repr__(self):
         return f'File({repr(self._identifier)})'
-
-
-class StringIdentifier(Identifier):
-
-    def __init__(self, s):
-        self.needs_render = isinstance(s, Template)
-        self.rendered = False
-
-        if not self.needs_render and not isinstance(s, str):
-            # if no Template passed but parameter is not str, cast...
-            warnings.warn('Initialized StringIdentifier with non-string '
-                          f'object "{s}" type: {type(s)}, casting to str...')
-            s = str(s)
-
-        self._s = s

@@ -50,6 +50,9 @@ class Base64Serializer:
 
 
 class PostgresRelation(PostgresConnectionMixin, Product):
+    """A Product that represents a postgres relation (table or view)
+    """
+
     def __init__(self, identifier, conn=None,
                  metadata_serializer=Base64Serializer):
         if len(identifier) != 3:
@@ -149,6 +152,8 @@ class PostgresRelation(PostgresConnectionMixin, Product):
 
 
 class PostgresIdentifier:
+    """An identifier that represents a database relation (table or view)
+    """
     TABLE = 'table'
     VIEW = 'view'
 

@@ -1,8 +1,20 @@
-from jinja2 import Template
+"""
+Identifiers are used by products to represent their persistent
+representations, for example product, for example, File uses it to represent
+the path to a file. Identifiers are lazy-loaded, they can be initialized
+with a jinja2.Template and rendered before task execution, which makes
+passing metadata between products and its upstream tasks possible.
+"""
+from pathlib import Path
+import inspect
 import warnings
 
+from jinja2 import Template
 
-class Identifier:
+
+class StringIdentifier:
+    """An identifier that represents a string
+    """
 
     def __init__(self, s):
         self.needs_render = isinstance(s, Template)
@@ -49,3 +61,45 @@ class Identifier:
             return self._s
         else:
             return self._s
+
+
+class CodeIdentifier(StringIdentifier):
+    """
+    A CodeIdentifier represents a piece of code in various forms:
+    a Python callable, a language-agnostic string, a path to a soure code file
+    or a jinja2.Template
+    """
+
+    # FIXME: simplify this conditionals
+    def __init__(self, code):
+        self.needs_render = False
+        self.rendered = False
+
+        if callable(code):
+            self._s = code
+        elif isinstance(code, str):
+            self._s = code
+        elif isinstance(code, Path):
+            self._s = code
+        elif isinstance(code, Template):
+            self.needs_render = True
+            self._s = code
+        else:
+            TypeError('Code must be a callable, str, pathlib.Path or '
+                      f'jinja2.Template, got {type(code)}')
+
+    @property
+    def source(self):
+        if callable(self._s):
+            # TODO: i think this doesn't work sometime and dill has a function
+            # that covers more use cases, check
+            return inspect.getsource(self())
+        elif isinstance(self._s, str):
+            return self()
+        elif isinstance(self._s, Path):
+            return self().read_text()
+        elif isinstance(self._s, Template):
+            return self()
+        else:
+            TypeError('Code must be a callable, str, pathlib.Path or '
+                      f'jinja2.Template, got {type(self.code)}')

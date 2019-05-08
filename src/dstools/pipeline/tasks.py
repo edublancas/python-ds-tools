@@ -1,5 +1,7 @@
-from jinja2 import Template
-import inspect
+"""
+A Task is a unit of work that produces a persistent change (Product)
+such as a bash or a SQL script
+"""
 import shlex
 import subprocess
 from subprocess import CalledProcessError
@@ -8,11 +10,16 @@ import logging
 from datetime import datetime
 from dstools.pipeline import util
 from dstools.pipeline.products import Product, MetaProduct
-from dstools.pipeline.identifiers import Identifier
+from dstools.pipeline.identifiers import CodeIdentifier
 from dstools.util import isiterable
 
 
 class TaskGroup:
+    """
+    A collection of Tasks, used internally for enabling operador overloading
+
+    (task1 + task2) >> task3
+    """
 
     def __init__(self, tasks):
         self.tasks = tasks
@@ -48,43 +55,6 @@ class TaskGroup:
         other.set_upstream(self)
         # return other so a >> b >> c works
         return other
-
-
-class CodeIdentifier(Identifier):
-
-    # FIXME: simplify this conditionals
-    def __init__(self, code):
-        self.needs_render = False
-        self.rendered = False
-
-        if callable(code):
-            self._s = code
-        elif isinstance(code, str):
-            self._s = code
-        elif isinstance(code, Path):
-            self._s = code
-        elif isinstance(code, Template):
-            self.needs_render = True
-            self._s = code
-        else:
-            TypeError('Code must be a callable, str, pathlib.Path or '
-                      f'jinja2.Template, got {type(code)}')
-
-    @property
-    def source(self):
-        if callable(self._s):
-            # TODO: i think this doesn't work sometime and dill has a function
-            # that covers more use cases, check
-            return inspect.getsource(self())
-        elif isinstance(self._s, str):
-            return self()
-        elif isinstance(self._s, Path):
-            return self().read_text()
-        elif isinstance(self._s, Template):
-            return self()
-        else:
-            TypeError('Code must be a callable, str, pathlib.Path or '
-                      f'jinja2.Template, got {type(self.code)}')
 
 
 class Task:
