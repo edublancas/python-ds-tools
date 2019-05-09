@@ -159,6 +159,7 @@ class PostgresIdentifier:
     """
     TABLE = 'table'
     VIEW = 'view'
+    # FIXME: make this a subclass of Identifier, and add hooks
 
     def __init__(self, schema, name, kind):
         self.needs_render = isinstance(name, Template)
