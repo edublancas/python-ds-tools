@@ -27,6 +27,10 @@ class Identifier:
         raise NotImplementedError('Identifier subclasses must implement this '
                                   'method')
 
+    def after_render_hook(self):
+        raise NotImplementedError('Identifier subclasses must implement this '
+                                  'method')
+
     def __str__(self):
         return self()
 
@@ -38,6 +42,7 @@ class Identifier:
             if not self.rendered:
                 self.s = self.s.render(params)
                 self.rendered = True
+                self.after_render_hook()
             else:
                 warnings.warn(f'Trying to render {repr(self)}, with was'
                               ' already rendered, skipping render...')
@@ -74,6 +79,9 @@ class StringIdentifier(Identifier):
                           f'{type(self.s)}, casting to str...')
             self.s = str(self.s)
 
+    def after_render_hook(self):
+        pass
+
 
 class CodeIdentifier(Identifier):
     """
@@ -105,3 +113,6 @@ class CodeIdentifier(Identifier):
         else:
             TypeError('Code must be a callable, str, pathlib.Path or '
                       f'jinja2.Template, got {type(self.code)}')
+
+    def after_render_hook(self):
+        pass

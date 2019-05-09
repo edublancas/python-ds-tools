@@ -104,4 +104,17 @@ def open_conn():
 
     yield conn
 
+    pg.CONN = None
+
     conn.close()
+
+
+@pytest.fixture(scope='session')
+def fake_conn():
+    o = object()
+
+    pg.CONN = o
+
+    yield o
+
+    pg.CONN = None
