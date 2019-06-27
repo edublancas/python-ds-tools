@@ -41,6 +41,10 @@ def get_git_timestamp(path):
     return int(_run_command(path, 'git log -1 --format=%ct'))
 
 
+def current_branch(path):
+    return _run_command(path, 'git branch --show-current')
+
+
 def get_version(package_name):
     """Get package version
     """
@@ -60,14 +64,15 @@ def get_diff(path):
     return _run_command(path, "git diff -- . ':(exclude)*.ipynb'")
 
 
-def get_env_metadata(env):
-    git_summary = one_line_git_summary(env.path.home)
-    hash_ = git_hash(env.path.home)
-    git_diff = get_diff(env.path.home)
-    git_timestamp = get_git_timestamp(env.path.home)
+def get_env_metadata(path):
+    git_summary = one_line_git_summary(path)
+    hash_ = git_hash(path)
+    git_diff = get_diff(path)
+    git_timestamp = get_git_timestamp(path)
+    git_branch = current_branch(path)
 
     return dict(git_summary=git_summary, git_hash=hash_, git_diff=git_diff,
-                git_timestamp=git_timestamp)
+                git_timestamp=git_timestamp, git_branch=git_branch)
 
 
 def save_env_metadata(env, path_to_output):

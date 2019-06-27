@@ -6,10 +6,14 @@ from warnings import warn
 from itertools import chain
 from pathlib import Path
 from glob import iglob
+from io import StringIO
 
 from dstools.FrozenJSON import FrozenJSON
 from dstools.path import PathManager
 from dstools import repo
+
+import yaml
+from jinja2 import Template
 
 
 class Env:
@@ -79,7 +83,8 @@ class Env:
                          'have more than one environment per project')
 
         self._path_to_env = path_to_env
-        self._env_content = FrozenJSON.from_yaml(path_to_env)
+
+        self._env_content = self.load(path_to_env)
 
         self._name = _get_name(path_to_env)
         self._path = PathManager(path_to_env, self)
@@ -107,7 +112,24 @@ class Env:
     def get_metadata(self):
         """Get env metadata such as git hash, last commit timestamp
         """
-        return repo.get_env_metadata(self)
+        return repo.get_env_metadata(self.path.home)
+
+    def load(self, path_to_env):
+        with open(path_to_env) as f:
+            author = yaml.load(f)['author']
+
+        path_to_env = Path(path_to_env)
+        home = path_to_env.parent
+        git_branch = repo.get_env_metadata(home)['git_branch']
+        s = (Template(path_to_env.read_text())
+             .render(author=author, git_branch=git_branch))
+
+        with StringIO(s) as f:
+            content = yaml.load(f)
+
+        env = FrozenJSON(content)
+
+        return env
 
 
 def find_env(max_levels_up=3):
