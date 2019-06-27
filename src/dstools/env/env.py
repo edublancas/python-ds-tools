@@ -7,6 +7,7 @@ from itertools import chain
 from pathlib import Path
 from glob import iglob
 from io import StringIO
+import getpass
 
 from dstools.FrozenJSON import FrozenJSON
 from dstools.path import PathManager
@@ -115,14 +116,12 @@ class Env:
         return repo.get_env_metadata(self.path.home)
 
     def load(self, path_to_env):
-        with open(path_to_env) as f:
-            author = yaml.load(f)['author']
-
+        user = getpass.getuser()
         path_to_env = Path(path_to_env)
         home = path_to_env.parent
         git_branch = repo.get_env_metadata(home)['git_branch']
         s = (Template(path_to_env.read_text())
-             .render(author=author, git_branch=git_branch))
+             .render(user=user, git_branch=git_branch))
 
         with StringIO(s) as f:
             content = yaml.load(f)
