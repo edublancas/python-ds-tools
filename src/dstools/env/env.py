@@ -110,6 +110,9 @@ class Env:
     def __getattr__(self, key):
         return getattr(self._env_content, key)
 
+    def __getitem__(self, key):
+        return self._env_content[key]
+
     def get_metadata(self):
         """Get env metadata such as git hash, last commit timestamp
         """
@@ -131,7 +134,7 @@ class Env:
         return env
 
 
-def find_env(max_levels_up=3):
+def find_env(max_levels_up=6):
     def levels_up(n):
         return chain.from_iterable(iglob('../' * i + '**')
                                    for i in range(n + 1))
