@@ -107,15 +107,12 @@ class PostgresRelation(PostgresConnectionMixin, Product):
     def save_metadata(self):
         metadata = self.metadata_serializer.serialize(self.metadata)
 
-        schema = sql.Identifier(self.identifier.schema)
-        name = sql.Identifier(self.identifier.name)
-
         if self.identifier.kind == PostgresIdentifier.TABLE:
-            query = (sql.SQL("COMMENT ON TABLE {}.{} IS %(metadata)s;")
-                     .format(schema, name))
+            query = (sql.SQL("COMMENT ON TABLE {} IS %(metadata)s;"
+                     .format(self.identifier)))
         else:
-            query = (sql.SQL("COMMENT ON VIEW {}.{} IS %(metadata)s;")
-                     .format(schema, name))
+            query = (sql.SQL("COMMENT ON VIEW {} IS %(metadata)s;"
+                     .format(self.identifier)))
 
         cur = self._get_conn().cursor()
         cur.execute(query, dict(metadata=metadata))
@@ -123,7 +120,9 @@ class PostgresRelation(PostgresConnectionMixin, Product):
         cur.close()
 
     def __repr__(self):
-        id_ = self.identifier
+        # using _identifier since self.identifier will implicitely call
+        # self._identifier() which might fail if this has not been rendered
+        id_ = self._identifier
         return f'PG{id_.kind.capitalize()}: {id_.schema}.{id_.name}'
 
     def __str__(self):
@@ -225,10 +224,13 @@ class PostgresIdentifier:
             return self
 
     def __str__(self):
-        return f'{self.schema}.{self.name}'
+        if self.schema:
+            return f'"{self.schema}"."{self.name}"'
+        else:
+            return f'"{self.name}"'
 
     def __repr__(self):
-        return f'{self.schema}.{self.name} (PG{self.kind.capitalize()})'
+        return f'"{self.schema}"."{self.name}" (PG{self.kind.capitalize()})'
 
     def __eq__(self, other):
         """Compare schema.name to set order"""

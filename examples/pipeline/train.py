@@ -7,7 +7,7 @@ from sklearn.metrics import classification_report
 import pandas as pd
 
 
-def train_and_save_report(path_to_dataset, path_to_report, *args, **kwargs):
+def train_and_save_report(product, upstream, path_to_dataset, path_to_report):
     df_training = pd.read_csv(path_to_dataset / 'training.csv')
     df_testing = pd.read_csv(path_to_dataset / 'testing.csv')
 

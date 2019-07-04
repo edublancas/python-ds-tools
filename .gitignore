@@ -1,9 +1,5 @@
 **/env.yaml
 
-usage/**/*.csv
-usage/**/*.yaml
-usage/**/*.json
-
 .pytest_cache/
 
 #### joe made this: https://goel.io/joe
@@ -20,6 +16,10 @@ __pycache__/
 # Distribution / packaging
 .Python
 env/
+
+# add env/ module
+!src/dstools/env/
+
 build/
 develop-eggs/
 dist/

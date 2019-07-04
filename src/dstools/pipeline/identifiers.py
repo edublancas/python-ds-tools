@@ -73,7 +73,9 @@ class StringIdentifier(Identifier):
     """
 
     def after_init_hook(self):
-        if not self.needs_render and not isinstance(self.s, str):
+        # warn if object is not string, Path is ok too...
+        if not self.needs_render and not (isinstance(self.s, str)
+                                          or isinstance(self.s, Path)):
             # if no Template passed but parameter is not str, cast...
             warnings.warn('Initialized StringIdentifier with non-string '
                           f'object "{self.s}" type: '

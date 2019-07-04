@@ -2,6 +2,7 @@
 A Task is a unit of work that produces a persistent change (Product)
 such as a bash or a SQL script
 """
+from copy import deepcopy
 import shlex
 import subprocess
 from subprocess import CalledProcessError
@@ -12,6 +13,8 @@ from dstools.pipeline import util
 from dstools.pipeline.products import Product, MetaProduct
 from dstools.pipeline.identifiers import CodeIdentifier
 from dstools.pipeline.build_report import BuildReport
+from dstools.pipeline.dag import DAG
+from dstools.pipeline.exceptions import TaskBuildError
 from dstools.util import isiterable
 
 
@@ -66,12 +69,12 @@ class Task:
     code: callable, Path, str
     """
 
-    def __init__(self, code, product, dag, name, params={}):
+    def __init__(self, code, product, dag, name, params=None):
         self._upstream = []
         self._upstream_by_name = {}
         self._name = name
 
-        self.params = params
+        self.params = params or {}
         self.build_report = None
 
         self._code = CodeIdentifier(code)
@@ -86,6 +89,7 @@ class Task:
         self.product.task = self
 
         dag.add_task(self)
+        self.dag = dag
 
     @property
     def name(self):
@@ -115,7 +119,7 @@ class Task:
         raise NotImplementedError('You have to implement this method')
 
     def set_upstream(self, other):
-        if isiterable(other):
+        if isiterable(other) and not isinstance(other, DAG):
             for o in other:
                 self._upstream.append(o)
                 self._upstream_by_name[o.name] = o
@@ -133,7 +137,7 @@ class Task:
     def __add__(self, other):
         """ a + b means TaskGroup([a, b])
         """
-        if isiterable(other):
+        if isiterable(other) and not isinstance(other, DAG):
             return TaskGroup([self] + list(other))
         else:
             return TaskGroup((self, other))
@@ -154,6 +158,8 @@ class Task:
 
         run = False
         elapsed = None
+
+        exists_initial = self.product.exists()
 
         # check dependencies only if the product exists and there is metadata
         if self.product.exists() and self.product.metadata is not None:
@@ -203,6 +209,12 @@ class Task:
             # exist, timestamp must be recent equal to the datetime.now()
             # used. maybe run fetch metadata again and validate?
 
+            if not self.product.exists():
+                raise TaskBuildError(f'Error building task "{self}": '
+                                     'the task ran successfully but product '
+                                     f'"{self.product}" does not exist yet '
+                                     '(task.product.exist() returned False)')
+
         else:
             self._logger.info(f'No need to run {repr(self)}')
 
@@ -242,38 +254,24 @@ class Task:
     def render(self):
         """
         Renders code and product, all upstream tasks must have been rendered
-        first
+        first, for that reason, this method will usually not be called
+        directly but via DAG.render(), which renders in the right order
         """
-        up = {n: t.product.identifier for n, t
-              in self.upstream_by_name.items()}
+        # add upstream product identifiers to params
+        self.params['upstream'] = {n: t.product.identifier for n, t
+                                   in self.upstream_by_name.items()}
 
-        # NOTE: we modify self.params so the new parameters are available
-        # after render, this is needed by PythonCallable, which does not
-        # need rendered source code, but it needs this parameters when
-        # the callable is executed
-
-        # NOTE: we are passing all upstream products two times, at first
-        # i thought it was a good idea just to pass then "expanded"
-        # using **up to make templates cleaner, but for some cases we want
-        # to iterate over all upstream dependencies, so having "up" is easier,
-        # I have to decide if it's best to leave these two or just one
-        self.params = {**self.params, **up}
-        self.params['up'] = up
-
-        # first, render the current product
+        # render the current product
         try:
-            self.product.render(self.params)
+            self.product.render(deepcopy(self.params))
         except Exception as e:
-            raise RuntimeError(f'Error rendering product {self.product} from '
-                               f'task {self} with params '
+            raise RuntimeError(f'Error rendering product {repr(self.product)} '
+                               f'from task {repr(self)} with params '
                                f'{self.params}. Exception: {e}')
 
-        # then, make it available before rendering code since it might be a
-        # template with a reference to the current product
-        self.params['me'] = self.product.identifier
+        self.params['product'] = self.product.identifier
 
-        # render code
-        self._code.render(self.params)
+        self._code.render(deepcopy(self.params))
 
     def __repr__(self):
         return f'{type(self).__name__}: {self.name} -> {repr(self.product)}'
@@ -285,12 +283,26 @@ class Task:
 
         return f'{short(self.name)} -> \n{short(self.product.short_repr())}'
 
+    def plan(self):
+        """Shows a text summary of what this task will execute
+        """
+
+        plan = f"""
+        Input parameters: {self.params}
+        Product: {self.product}
+
+        Source code:
+        {self.source_code}
+        """
+
+        print(plan)
+
 
 class BashCommand(Task):
     """A task that runs bash command
     """
 
-    def __init__(self, code, product, dag, name, params={},
+    def __init__(self, code, product, dag, name, params=None,
                  subprocess_run_kwargs={'stderr': subprocess.PIPE,
                                         'stdout': subprocess.PIPE,
                                         'shell': False},
@@ -323,7 +335,7 @@ class ScriptTask(Task):
     """
     _INTERPRETER = None
 
-    def __init__(self, code, product, dag, name, params={}):
+    def __init__(self, code, product, dag, name, params=None):
         if not isinstance(code, Path):
             raise ValueError(f'{type(self).__name__} must be called with '
                              'a pathlib.Path object in the code '
@@ -366,11 +378,9 @@ class PythonScript(ScriptTask):
 class PythonCallable(Task):
     """A task that runs a Python callabel (i.e.  a function)
     """
-    def __init__(self, code, product, dag, name, params={}):
+    def __init__(self, code, product, dag, name, params=None):
         super().__init__(code, product, dag, name, params)
 
-    def compile_source_code(self):
-        pass
-
     def run(self):
+        # call it with product, upstream and the rest of the parameters
         self.code(**self.params)

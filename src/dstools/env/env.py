@@ -6,10 +6,15 @@ from warnings import warn
 from itertools import chain
 from pathlib import Path
 from glob import iglob
+from io import StringIO
+import getpass
 
 from dstools.FrozenJSON import FrozenJSON
 from dstools.path import PathManager
 from dstools import repo
+
+import yaml
+from jinja2 import Template
 
 
 class Env:
@@ -23,6 +28,14 @@ class Env:
     to store database URIs. Storing sensitive information is discouraged as
     yaml files are plain text. Use `keyring` for that instead.
 
+    All sections are optional, but if there is a path section, all values
+    inside that section will be casted to pathlib.Path objects, expanduser()
+    is applied so "~" can be used.
+
+    There are two wildcards available "{{user}}" (returns the current user)
+    and "{{git_branch}}" (returns the current git branch by looking in the
+    env.yaml file location)
+
     Examples
     --------
 
@@ -31,12 +44,7 @@ class Env:
     >>> from dstools import Env
     >>> env = Env()
     >>> env.db.uri # traverse the yaml tree structure using dot notation
-    >>> env.name # returns the environment name
-    >>> env.path.home # returns an absolute path to the env file location
-    >>> env.path.output # returns an ansolute path to the output folder
-    >>> env.path.input # returns an ansolute path to the input folder
-    >>> env.path.log # returns an ansolute path to the log folder
-
+    >>> env.path.raw # returns an absolute path to the raw data
     """
     __path_to_env = None
 
@@ -79,7 +87,8 @@ class Env:
                          'have more than one environment per project')
 
         self._path_to_env = path_to_env
-        self._env_content = FrozenJSON.from_yaml(path_to_env)
+
+        self._env_content = self.load(path_to_env)
 
         self._name = _get_name(path_to_env)
         self._path = PathManager(path_to_env, self)
@@ -104,13 +113,36 @@ class Env:
     def __getattr__(self, key):
         return getattr(self._env_content, key)
 
+    def __getitem__(self, key):
+        return self._env_content[key]
+
     def get_metadata(self):
         """Get env metadata such as git hash, last commit timestamp
         """
-        return repo.get_env_metadata(self)
+        return repo.get_env_metadata(self.path.home)
+
+    def load(self, path_to_env):
+        path_to_env = Path(path_to_env)
+        home = path_to_env.parent
+        env_content = path_to_env.read_text()
+
+        params = dict(user=getpass.getuser())
+
+        # only try to find git branch if {{git_branch is used}}
+        if '{{git_branch}}' in env_content:
+            params['git_branch'] = repo.get_env_metadata(home)['git_branch']
+
+        s = Template(env_content).render(**params)
+
+        with StringIO(s) as f:
+            content = yaml.load(f)
+
+        env = FrozenJSON(content)
+
+        return env
 
 
-def find_env(max_levels_up=3):
+def find_env(max_levels_up=6):
     def levels_up(n):
         return chain.from_iterable(iglob('../' * i + '**')
                                    for i in range(n + 1))

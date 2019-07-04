@@ -23,13 +23,13 @@ def test_passing_upstream_and_product_in_bashcommand(tmp_directory):
               'stdout': subprocess.PIPE,
               'shell': True}
 
-    ta = BashCommand(Template('echo a > {{me}} '), File(fa), dag,
+    ta = BashCommand(Template('echo a > {{product}} '), File(fa), dag,
                      'ta', {}, kwargs, False)
-    tb = BashCommand(Template('cat {{ta}} > {{me}}'
-                     '&& echo b >> {{me}} '), File(fb), dag,
+    tb = BashCommand(Template('cat {{upstream["ta"]}} > {{product}}'
+                     '&& echo b >> {{product}} '), File(fb), dag,
                      'tb', {}, kwargs, False)
-    tc = BashCommand(Template('cat {{tb}} > {{me}} '
-                     '&& echo c >> {{me}}'), File(fc), dag,
+    tc = BashCommand(Template('cat {{upstream["tb"]}} > {{product}} '
+                     '&& echo c >> {{product}}'), File(fc), dag,
                      'tc', {}, kwargs, False)
 
     ta >> tb >> tc
@@ -48,8 +48,8 @@ def test_passing_upstream_and_product_in_postgres(open_conn):
     cur.close()
 
     ta_t = Template("""begin;
-              drop table if exists {{me}};
-              create table {{me}} as
+              drop table if exists {{product}};
+              create table {{product}} as
               select * from generate_series(0, 15) as n;
               commit;""")
     ta_rel = pg.PostgresRelation(('public', 'series', 'table'))

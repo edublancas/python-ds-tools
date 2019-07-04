@@ -35,51 +35,50 @@ db = util.load_db_credentials()
 
 dag = DAG()
 
-get_data_task = BashScript(home / 'get_data.sh',
-                           File(env.path.input / 'raw' / 'red.csv'),
-                           dag, 'get_data')
+get_data = BashScript(home / 'get_data.sh',
+                      File(env.path.input / 'raw' / 'red.csv'),
+                      dag, 'get_data')
 
-sample_task = PythonScript(home / 'sample.py',
-                           File(env.path.input / 'sample' / 'red.csv'),
-                           dag, 'sample')
-sample_task.set_upstream(get_data_task)
+sample = PythonScript(home / 'sample.py',
+                      File(env.path.input / 'sample' / 'red.csv'),
+                      dag, 'sample')
+get_data >> sample
 
 red_path = path_to_sample / 'red.csv'
 red_task = BashCommand(Template('csvsql --db {{db}} --tables red --insert {{path}} '
-                       '--overwrite'),
+                                '--overwrite'),
                        pg.PostgresRelation(('public', 'red', 'table')),
                        dag, 'red',
                        params=dict(db=db['uri'], path=red_path))
-red_task.set_upstream(sample_task)
+sample >> red_task
 
 white_path = Path(path_to_sample / 'white.csv')
 white_task = BashCommand(Template('csvsql --db {{db}} --tables white --insert {{path}} '
-                         '--overwrite'),
+                                  '--overwrite'),
                          pg.PostgresRelation(('public', 'white', 'table')),
                          dag, 'white',
                          params=dict(db=db['uri'], path=white_path))
-white_task.set_upstream(sample_task)
+sample >> white_task
 
 
 wine_task = pg.PostgresScript(home / 'sql' / 'create_wine.sql',
                               pg.PostgresRelation(('public', 'wine', 'table')),
                               dag, 'wine')
-wine_task.set_upstream(white_task)
-wine_task.set_upstream(red_task)
+(red_task + white_task) >> wine_task
 
 
 dataset_task = pg.PostgresScript(home / 'sql' / 'create_dataset.sql',
                                  pg.PostgresRelation(
                                      ('public', 'dataset', 'table')),
                                  dag, 'dataset')
-dataset_task.set_upstream(wine_task)
+wine_task >> dataset_task
 
 
 training_task = pg.PostgresScript(home / 'sql' / 'create_training.sql',
                                   pg.PostgresRelation(
                                       ('public', 'training', 'table')),
                                   dag, 'training')
-training_task.set_upstream(dataset_task)
+dataset_task >> training_task
 
 
 testing_table = pg.PostgresRelation(('public', 'testing', 'table'))
@@ -87,16 +86,16 @@ testing_table.tests = [testing.Postgres.no_nas_in_column('label')]
 testing_task = pg.PostgresScript(home / 'sql' / 'create_testing.sql',
                                  testing_table, dag, 'testing')
 
-testing_task.set_upstream(dataset_task)
+dataset_task >> testing_task
 
 
 path_to_dataset = env.path.input / 'datasets'
-params = dict(path_to_dataset=path_to_dataset, conn=pg.CONN)
+params = dict(path_to_dataset=path_to_dataset)
 download_task = PythonCallable(download_dataset,
                                File(path_to_dataset / 'training.csv'),
                                dag, 'download', params=params)
-download_task.set_upstream(training_task)
-download_task.set_upstream(testing_task)
+training_task >> download_task
+testing_task >> download_task
 
 
 path_to_report = env.path.input / 'reports' / mkfilename('report.txt')
@@ -104,7 +103,7 @@ params = dict(path_to_dataset=path_to_dataset,
               path_to_report=path_to_report)
 train_task = PythonCallable(train_and_save_report, File(
     path_to_report), dag, 'train', params=params)
-train_task.set_upstream(download_task)
+download_task >> train_task
 
 # dag.plot()
 

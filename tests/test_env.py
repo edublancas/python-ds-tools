@@ -1,5 +1,5 @@
 import pytest
-from dstools.env import _get_name, Env
+from dstools.env.env import _get_name, Env
 
 
 def test_assigns_default_name():
