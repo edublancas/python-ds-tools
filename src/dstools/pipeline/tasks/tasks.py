@@ -13,6 +13,7 @@ from dstools.pipeline.products import Product, MetaProduct
 from dstools.pipeline.identifiers import CodeIdentifier
 from dstools.pipeline.build_report import BuildReport
 from dstools.pipeline.dag import DAG
+from dstools.pipeline.exceptions import TaskBuildError
 from dstools.util import isiterable
 
 
@@ -157,6 +158,8 @@ class Task:
         run = False
         elapsed = None
 
+        exists_initial = self.product.exists()
+
         # check dependencies only if the product exists and there is metadata
         if self.product.exists() and self.product.metadata is not None:
             outdated_data_deps = self.product.outdated_data_dependencies()
@@ -204,6 +207,12 @@ class Task:
             # if they did not exist, they must exist now, if they alredy
             # exist, timestamp must be recent equal to the datetime.now()
             # used. maybe run fetch metadata again and validate?
+
+            if not exists_initial and not self.product.exists():
+                raise TaskBuildError(f'Error building task "{self}": '
+                                     'the task ran successfully but product '
+                                     f'"{self.product}" does not exist yet '
+                                     '(task.product.exist() returned False)')
 
         else:
             self._logger.info(f'No need to run {repr(self)}')
