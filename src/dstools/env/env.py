@@ -129,7 +129,7 @@ class Env:
         params = dict(user=getpass.getuser())
 
         # only try to find git branch if {{git_branch is used}}
-        if '{{git_branch}} in env_content':
+        if '{{git_branch}}' in env_content:
             params['git_branch'] = repo.get_env_metadata(home)['git_branch']
 
         s = Template(env_content).render(**params)
