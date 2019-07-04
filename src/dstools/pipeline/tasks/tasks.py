@@ -208,7 +208,7 @@ class Task:
             # exist, timestamp must be recent equal to the datetime.now()
             # used. maybe run fetch metadata again and validate?
 
-            if not exists_initial and not self.product.exists():
+            if not self.product.exists():
                 raise TaskBuildError(f'Error building task "{self}": '
                                      'the task ran successfully but product '
                                      f'"{self.product}" does not exist yet '
