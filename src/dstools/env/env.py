@@ -28,6 +28,14 @@ class Env:
     to store database URIs. Storing sensitive information is discouraged as
     yaml files are plain text. Use `keyring` for that instead.
 
+    All sections are optional, but if there is a path section, all values
+    inside that section will be casted to pathlib.Path objects, expanduser()
+    is applied so "~" can be used.
+
+    There are two wildcards available "{{user}}" (returns the current user)
+    and "{{git_branch}}" (returns the current git branch by looking in the
+    env.yaml file location)
+
     Examples
     --------
 
@@ -36,12 +44,7 @@ class Env:
     >>> from dstools import Env
     >>> env = Env()
     >>> env.db.uri # traverse the yaml tree structure using dot notation
-    >>> env.name # returns the environment name
-    >>> env.path.home # returns an absolute path to the env file location
-    >>> env.path.output # returns an ansolute path to the output folder
-    >>> env.path.input # returns an ansolute path to the input folder
-    >>> env.path.log # returns an ansolute path to the log folder
-
+    >>> env.path.raw # returns an absolute path to the raw data
     """
     __path_to_env = None
 
