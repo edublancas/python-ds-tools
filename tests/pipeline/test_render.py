@@ -37,8 +37,8 @@ def dag():
 
 def test_can_render_templates_in_products(dag, tmp_directory):
 
-    t2 = dag.tasks_by_name['t2']
-    t3 = dag.tasks_by_name['t3']
+    t2 = dag['t2']
+    t3 = dag['t3']
 
     dag.render()
 

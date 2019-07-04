@@ -28,7 +28,7 @@ def test_can_access_sub_dag():
     assert 'sub_dag' in td.upstream_by_name
 
 
-def test_dag_can_access_tasks_by_name():
+def test_can_access_tasks_inside_dag_using_getitem():
     dag = DAG('dag')
     dag2 = DAG('dag2')
 
@@ -43,9 +43,4 @@ def test_dag_can_access_tasks_by_name():
 
     td >> ta >> tb >> tc >> te
 
-    # FIXME: i have to come up with a unified api for this
-    assert set(dag.tasks_by_name.keys()) == {'ta', 'tb', 'tc'}
-
-    assert set(dag.to_dict().keys()) == {'ta', 'tb', 'tc', 'td'}
-
-    # FIXME: te should also be discoverable
+    assert set(dag) == {'ta', 'tb', 'tc'}

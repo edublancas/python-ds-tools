@@ -2,7 +2,6 @@
 A Task is a unit of work that produces a persistent change (Product)
 such as a bash or a SQL script
 """
-from copy import copy
 import shlex
 import subprocess
 from subprocess import CalledProcessError
@@ -13,6 +12,7 @@ from dstools.pipeline import util
 from dstools.pipeline.products import Product, MetaProduct
 from dstools.pipeline.identifiers import CodeIdentifier
 from dstools.pipeline.build_report import BuildReport
+from dstools.pipeline.dag import DAG
 from dstools.util import isiterable
 
 
@@ -117,7 +117,7 @@ class Task:
         raise NotImplementedError('You have to implement this method')
 
     def set_upstream(self, other):
-        if isiterable(other):
+        if isiterable(other) and not isinstance(other, DAG):
             for o in other:
                 self._upstream.append(o)
                 self._upstream_by_name[o.name] = o
@@ -135,7 +135,7 @@ class Task:
     def __add__(self, other):
         """ a + b means TaskGroup([a, b])
         """
-        if isiterable(other):
+        if isiterable(other) and not isinstance(other, DAG):
             return TaskGroup([self] + list(other))
         else:
             return TaskGroup((self, other))
