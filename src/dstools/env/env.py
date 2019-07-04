@@ -122,12 +122,17 @@ class Env:
         return repo.get_env_metadata(self.path.home)
 
     def load(self, path_to_env):
-        user = getpass.getuser()
         path_to_env = Path(path_to_env)
         home = path_to_env.parent
-        git_branch = repo.get_env_metadata(home)['git_branch']
-        s = (Template(path_to_env.read_text())
-             .render(user=user, git_branch=git_branch))
+        env_content = path_to_env.read_text()
+
+        params = dict(user=getpass.getuser())
+
+        # only try to find git branch if {{git_branch is used}}
+        if '{{git_branch}} in env_content':
+            params['git_branch'] = repo.get_env_metadata(home)['git_branch']
+
+        s = Template(env_content).render(**params)
 
         with StringIO(s) as f:
             content = yaml.load(f)
