@@ -1,6 +1,5 @@
 """
 Task implementations
-
 A Task is a unit of work that produces a persistent change (Product)
 such as a bash or a SQL script
 """
